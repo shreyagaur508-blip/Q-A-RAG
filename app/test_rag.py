@@ -1,24 +1,40 @@
-from rag import ask_question
+from rag import generate_answer
+
+
+relevant_chunks = [
+    {
+        "source": "machine_learning.pdf",
+        "text": (
+            "Supervised learning uses labeled data "
+            "to train a model. Examples include "
+            "classification and regression."
+        )
+    },
+    {
+        "source": "machine_learning.pdf",
+        "text": (
+            "Unsupervised learning works with "
+            "unlabeled data. Clustering is a "
+            "common example."
+        )
+    }
+]
 
 
 question = "What is supervised learning?"
 
 
-answer, sources = ask_question(question)
-
-
-print("\nQUESTION:")
+print("Question:")
 print(question)
 
+print("\nGenerating answer...\n")
 
-print("\nANSWER:")
+
+answer = generate_answer(
+    question,
+    relevant_chunks
+)
+
+
+print("Answer:")
 print(answer)
-
-
-print("\nSOURCES:")
-for i, source in enumerate(sources):
-    print("\n" + "=" * 60)
-    print("SOURCE", i + 1)
-    print("=" * 60)
-    print(source["text"])
-    print("\nDistance:", source["distance"])

@@ -26,21 +26,24 @@ st.set_page_config(
 # --------------------------------------------------
 
 st.title("📚 Document Q&A")
-st.caption("RAG-powered document assistant using local AI")
+st.caption(
+    "Ask questions about your PDFs using "
+    "local AI — no paid API required."
+)
 
 
 # --------------------------------------------------
 # SESSION STATE
 # --------------------------------------------------
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
 if "index" not in st.session_state:
     st.session_state.index = None
 
 if "chunks" not in st.session_state:
     st.session_state.chunks = []
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 
 # --------------------------------------------------
@@ -57,11 +60,18 @@ with st.sidebar:
         accept_multiple_files=True
     )
 
-    if st.button("Process Documents", use_container_width=True):
+    process_button = st.button(
+        "⚙️ Process Documents",
+        use_container_width=True
+    )
+
+    if process_button:
 
         if not uploaded_files:
 
-            st.warning("Please upload at least one PDF.")
+            st.warning(
+                "Please upload at least one PDF."
+            )
 
         else:
 
@@ -74,7 +84,7 @@ with st.sidebar:
             ):
 
                 st.write(
-                    f"Processing `{uploaded_file.name}`..."
+                    f"Reading `{uploaded_file.name}`..."
                 )
 
                 with tempfile.NamedTemporaryFile(
@@ -88,14 +98,16 @@ with st.sidebar:
 
                     pdf_path = temp_file.name
 
-                # Extract text
-                text = extract_text_from_pdf(pdf_path)
+                # Extract PDF text
+                text = extract_text_from_pdf(
+                    pdf_path
+                )
 
                 if not text.strip():
 
                     st.warning(
-                        f"No readable text found in "
-                        f"{uploaded_file.name}"
+                        f"No text found in "
+                        f"`{uploaded_file.name}`."
                     )
 
                     continue
@@ -114,21 +126,33 @@ with st.sidebar:
                     (number + 1) / len(uploaded_files)
                 )
 
-            if all_chunks:
+            if not all_chunks:
 
-                chunk_texts = [
-                    chunk["text"]
-                    for chunk in all_chunks
-                ]
+                st.error(
+                    "No readable text was found."
+                )
 
+            else:
+
+                st.write(
+                    f"Created {len(all_chunks)} chunks."
+                )
+
+                # Create embeddings
                 with st.spinner(
                     "Creating embeddings..."
                 ):
 
+                    texts = [
+                        chunk["text"]
+                        for chunk in all_chunks
+                    ]
+
                     embeddings = create_embeddings(
-                        chunk_texts
+                        texts
                     )
 
+                # Create FAISS index
                 with st.spinner(
                     "Building vector database..."
                 ):
@@ -137,6 +161,7 @@ with st.sidebar:
                         embeddings
                     )
 
+                # Store in session
                 st.session_state.index = index
 
                 st.session_state.chunks = all_chunks
@@ -144,15 +169,41 @@ with st.sidebar:
                 st.session_state.messages = []
 
                 st.success(
-                    f"Processed {len(uploaded_files)} "
-                    f"document(s)."
+                    "✅ Documents ready!"
                 )
 
-                st.info(
-                    f"Created {len(all_chunks)} chunks."
-                )
 
     st.divider()
+
+
+    # --------------------------------------------------
+    # DOCUMENT STATUS
+    # --------------------------------------------------
+
+    st.subheader("Status")
+
+    if st.session_state.index is not None:
+
+        st.success("🟢 Documents loaded")
+
+        st.write(
+            f"Chunks: "
+            f"**{len(st.session_state.chunks)}**"
+        )
+
+    else:
+
+        st.info(
+            "Upload and process a document."
+        )
+
+
+    st.divider()
+
+
+    # --------------------------------------------------
+    # CLEAR CHAT
+    # --------------------------------------------------
 
     if st.button(
         "🗑️ Clear Chat",
@@ -165,14 +216,18 @@ with st.sidebar:
 
 
 # --------------------------------------------------
-# SHOW CHAT HISTORY
+# CHAT HISTORY
 # --------------------------------------------------
 
 for message in st.session_state.messages:
 
-    with st.chat_message(message["role"]):
+    with st.chat_message(
+        message["role"]
+    ):
 
-        st.markdown(message["content"])
+        st.markdown(
+            message["content"]
+        )
 
 
 # --------------------------------------------------
@@ -180,13 +235,13 @@ for message in st.session_state.messages:
 # --------------------------------------------------
 
 question = st.chat_input(
-    "Ask something about your documents..."
+    "Ask a question about your documents..."
 )
 
 
 if question:
 
-    # Check documents
+    # Check if documents exist
     if st.session_state.index is None:
 
         st.warning(
@@ -196,7 +251,10 @@ if question:
         st.stop()
 
 
-    # Show user message
+    # --------------------------------------------------
+    # USER MESSAGE
+    # --------------------------------------------------
+
     st.session_state.messages.append({
         "role": "user",
         "content": question
@@ -207,17 +265,24 @@ if question:
         st.markdown(question)
 
 
-    # Retrieve relevant chunks
+    # --------------------------------------------------
+    # RETRIEVAL
+    # --------------------------------------------------
+
     with st.chat_message("assistant"):
 
         with st.spinner(
-            "Searching your documents..."
+            "🔎 Searching documents..."
         ):
 
-            question_embedding = create_embeddings(
-                [question]
-            )[0]
+            # Embed question
+            question_embedding = (
+                create_embeddings(
+                    [question]
+                )[0]
+            )
 
+            # Search FAISS
             distances, indices = (
                 st.session_state.index.search(
                     np.array(
@@ -226,12 +291,15 @@ if question:
                     ),
                     min(
                         3,
-                        len(st.session_state.chunks)
+                        len(
+                            st.session_state.chunks
+                        )
                     )
                 )
             )
 
 
+            # Get relevant chunks
             relevant_chunks = []
 
             for distance, index_number in zip(
@@ -239,9 +307,11 @@ if question:
                 indices[0]
             ):
 
-                chunk = st.session_state.chunks[
-                    index_number
-                ]
+                chunk = (
+                    st.session_state.chunks[
+                        index_number
+                    ]
+                )
 
                 relevant_chunks.append({
                     "text": chunk["text"],
@@ -250,9 +320,12 @@ if question:
                 })
 
 
-        # Generate answer
+        # --------------------------------------------------
+        # GENERATION
+        # --------------------------------------------------
+
         with st.spinner(
-            "Generating answer..."
+            "🤖 Generating answer..."
         ):
 
             answer = generate_answer(
@@ -261,32 +334,41 @@ if question:
             )
 
 
+        # Display answer
         st.markdown(answer)
 
 
-        # Sources
-        with st.expander("📖 View sources"):
+        # --------------------------------------------------
+        # SOURCES
+        # --------------------------------------------------
 
-            for number, source in enumerate(
+        with st.expander(
+            "📖 View retrieved sources"
+        ):
+
+            for number, chunk in enumerate(
                 relevant_chunks
             ):
 
                 st.markdown(
                     f"**Source {number + 1}: "
-                    f"{source['source']}**"
+                    f"{chunk['source']}**"
                 )
 
                 st.write(
-                    source["text"]
+                    chunk["text"]
                 )
 
                 st.caption(
-                    f"Distance: "
-                    f"{source['distance']:.4f}"
+                    f"Similarity distance: "
+                    f"{chunk['distance']:.4f}"
                 )
 
 
-    # Save assistant response
+    # --------------------------------------------------
+    # SAVE ANSWER
+    # --------------------------------------------------
+
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer

@@ -1,10 +1,27 @@
 import ollama
 
 
-def create_embeddings(chunks):
-    response = ollama.embed(
-        model="nomic-embed-text",
-        input=chunks
-    )
+MODEL = "nomic-embed-text"
 
-    return response["embeddings"]
+
+def create_embeddings(texts, batch_size=32):
+    """
+    Create embeddings using Ollama in batches.
+    """
+
+    all_embeddings = []
+
+    for i in range(0, len(texts), batch_size):
+
+        batch = texts[i:i + batch_size]
+
+        response = ollama.embed(
+            model=MODEL,
+            input=batch
+        )
+
+        all_embeddings.extend(
+            response["embeddings"]
+        )
+
+    return all_embeddings
