@@ -1,14 +1,24 @@
-def create_chunks(text, chunk_size=500, overlap=100):
+def create_chunks(
+    text,
+    chunk_size=1200,
+    overlap=200
+):
+    """
+    Split document text into overlapping chunks.
+    """
+
     chunks = []
 
     start = 0
 
     while start < len(text):
+
         end = start + chunk_size
 
-        chunk = text[start:end]
+        chunk = text[start:end].strip()
 
-        chunks.append(chunk)
+        if chunk:
+            chunks.append(chunk)
 
         start += chunk_size - overlap
 
