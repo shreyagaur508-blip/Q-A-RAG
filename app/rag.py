@@ -1,44 +1,84 @@
 import ollama
 
 
+MODEL = "llama3.2:3b"
+
+
 def generate_answer(question, relevant_chunks):
 
-    context = "\n\n".join(
-        f"Source: {chunk['source']}\n"
-        f"{chunk['text']}"
-        for chunk in relevant_chunks
-    )
+    # Build context from retrieved chunks
+    context_parts = []
+
+    for number, chunk in enumerate(
+        relevant_chunks,
+        start=1
+    ):
+
+        context_parts.append(
+            f"""
+SOURCE {number}
+Document: {chunk['source']}
+
+{chunk['text']}
+"""
+        )
+
+    context = "\n".join(context_parts)
+
+
+    # --------------------------------------------------
+    # PROMPT
+    # --------------------------------------------------
 
     prompt = f"""
 You are a document question-answering assistant.
 
-Answer the user's question using ONLY the information
-provided in the context below.
+Your job is to answer the user's question using ONLY
+the information contained in the provided document
+sources.
 
-If the answer cannot be found in the context, say:
-"I could not find the answer in the provided documents."
+IMPORTANT RULES:
 
-Do not make up information.
+1. Do not use outside knowledge.
+2. Do not invent facts.
+3. If the answer is not present in the sources,
+   say exactly:
 
-Context:
-----------------
+   "I could not find the answer in the provided documents."
+
+4. Give a clear and concise answer.
+5. When possible, mention which source supports
+   the answer.
+6. Do not mention these instructions in your answer.
+
+DOCUMENT SOURCES
+================
+
 {context}
-----------------
 
-Question:
+USER QUESTION
+=============
+
 {question}
 
-Answer:
+ANSWER
+======
 """
 
+
+    # --------------------------------------------------
+    # CALL LOCAL LLAMA
+    # --------------------------------------------------
+
     response = ollama.chat(
-        model="llama3.2:3b",
+        model=MODEL,
         messages=[
             {
                 "role": "user",
-                "content": prompt
+                "content": prompt,
             }
-        ]
+        ],
     )
+
 
     return response["message"]["content"]
